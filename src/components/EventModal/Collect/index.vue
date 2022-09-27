@@ -193,11 +193,7 @@ export default {
       this.paymentMethod = method;
     },
     handleShare() {
-      this.shareURLPath({
-        title: this.NFTName,
-        text: this.NFTDescription,
-        path: this.nftDetailsPageURL,
-      });
+      this.copyURLPath(this.nftDetailsPageURL);
       logTrackerEvent(
         this,
         'NFT',
