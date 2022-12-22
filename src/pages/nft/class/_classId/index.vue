@@ -6,119 +6,113 @@
     >{{ $t('nft_details_page_label_loading') }}</CardV2>
     <div
       v-else
-      :class="[
-        'flex',
-        'flex-col',
-        'px-[12px]',
-        'laptop:px-[24px]',
-        'self-stretch',
-
-        'w-full',
-        'max-w-[1024px]',
-        'mx-auto',
-        'pb-[120px]',
-      ]"
+      class="px-[12px] laptop:px-[24px] pb-[120px] w-full"
     >
-      <div class="flex items-center justify-start mb-[8px]">
-        <ButtonV2 preset="plain" text="Back" @click="$router.go(-1)">
-          <template #prepend>
-            <IconArrowLeft />
-          </template>
-        </ButtonV2>
-      </div>
-      <section
-        :class="[
-          'grid',
-          'grid-cols-1',
-          'desktop:grid-cols-3',
-          'gap-[24px]',
-        ]"
-      >
-        <!-- Left column -->
-        <div class="flex flex-col gap-[24px]">
-          <div class="grid grid-cols-1 laptop:grid-cols-2 desktop:grid-cols-1 items-stretch gap-[24px]">
-            <NFTGemWrapper :collected-count="mintedCount">
+
+      <div class="flex flex-col gap-[24px] w-full max-w-[962px] mx-auto">
+        <div class="flex items-center justify-end w-full">
+          <NFTPageControlBar
+            :collected-count="ownCount"
+            :class-id="classId"
+            :price="NFTPrice"
+            :collected-nft-ids="userCollectedNFTList"
+            :is-writing-nft="nftIsWritingNFT"
+            @transfer="onToggleTransfer"
+            @collect="handleCollectFromControlBar"
+          />
+        </div>
+        <section class="flex flex-col desktop:grid grid-cols-3 gap-[24px]">
+
+          <NFTPagePrimitiveDisclaimer
+            v-if="nftIsPrimitive"
+            class="w-full desktop:hidden"
+          />
+
+          <!-- Left column -->
+          <div
+            :class="[
+              'col-span-1 grid desktop:grid-cols-1 gap-[24px]',
+              { 'laptop:grid-cols-2': isShowPriceSection }
+            ]"
+          >
+            <NFTGemWrapper :collected-count="collectedCount">
               <NFTPagePreviewCard
+                :url="NFTExternalUrl"
                 :image-bg-color="NFTImageBackgroundColor"
                 :image-url="NFTImageUrl"
-                :avatar-url="iscnOwnerAvatar"
+                :avatar-url="creatorAvatar"
                 :avatar-size="40"
-                :is-avatar-outlined="isCivicLiker"
+                :is-avatar-outlined="isCreatorCivicLiker"
                 :iscn-owner="iscnOwner"
-                :display-name="iscnOwnerDisplayName"
+                :iscn-url="iscnURL"
+                :display-name="creatorDisplayName"
                 :nft-name="NFTName"
                 :nft-description="NFTDescription"
                 :nft-price="NFTPrice"
+                :collected-count="collectedCount"
+                :collector-count="ownerCount"
+                :class-collection-type="nftClassCollectionType"
+                :class-collection-name="nftClassCollectionName"
                 @collect="handleCollectFromPreviewSection"
+                @view-content="handleViewContent"
               />
             </NFTGemWrapper>
-            <NFTPageMetadataSection
-              :content-url="NFTExternalUrl"
-              :iscn-id="iscnId"
-              :iscn-url="iscnURL"
-              :content-fingerprints="nftISCNContentFingerprints"
+            <NFTPageCollectorList
+              :class-id="classId"
+              :owner-count="ownerCount"
+              :items="populatedCollectors"
+              :is-narrow="true"
             />
           </div>
-          <NFTPageCollectorList
-            class="hidden desktop:block"
-            :owner-count="ownerCount"
-            :items="populatedCollectors"
-            :is-narrow="true"
-          />
-        </div>
 
-        <!-- Right column -->
-        <div class="flex flex-col gap-[24px] desktop:col-span-2">
-          <div class="flex items-center w-full">
-            <NFTPageOwningSection
-              class="mr-[16px]"
-              :owned-count="userCollectedCount"
-              :is-transfer-disabled="!getAddress || !userCollectedCount"
-              :is-loading="isOwnerInfoLoading"
-              :is-log-in="!!getAddress"
-              :is-transferring="isTransferring"
-              @openTransfer="onToggleTransfer"
-            />
-            <ShareButton @copy="handleCopyURL" />
+          <Separator class="mx-auto desktop:hidden" />
+
+          <!-- Right column -->
+          <div class="flex flex-col gap-[24px] desktop:col-span-2">
+            <template v-if="nftIsPrimitive">
+              <NFTPagePrimitiveDisclaimer class="hidden w-full desktop:flex" />
+              <NFTPagePrimitiveClassInfoSection
+                :class-id="classId"
+                :collected-count="collectedCount"
+                :collector-count="ownerCount"
+              />
+            </template>
+            <template v-else-if="isShowPriceSection">
+              <NFTPagePriceSection
+                :nft-price="NFTPrice"
+                :nft-price-u-s-d="formattedNFTPriceUSD"
+                :is-collectable="nftIsCollectable"
+                :collected-count="collectedCount"
+                :collector-count="ownerCount"
+                :is-loading="uiIsOpenCollectModal && isCollecting"
+                :url="NFTExternalUrl"
+                @collect="handleCollectFromPriceSection"
+                @click-sell="handleClickSellFromPriceSection"
+                @hover-sell="handleHoverSellFromPriceSection"
+              />
+              <NFTPageSupplySection
+                v-if="nftIsCollectable"
+                :collected-count="collectedCount"
+                @collect="handleCollectFromSupplySection"
+              />
+            </template>
           </div>
-          <NFTPagePriceSection
-            v-if="NFTPrice"
-            :nft-price="NFTPrice"
-            :nft-price-u-s-d="formattedNFTPriceUSD"
-            :collected-count="mintedCount"
-            :collector-count="ownerCount"
-            :is-loading="uiIsOpenCollectModal && isCollecting"
-            @collect="handleCollectFromPriceSection"
-            @click-sell="handleClickSellFromPriceSection"
-            @hover-sell="handleHoverSellFromPriceSection"
-          />
-          <NFTPageSupplySection
-            v-if="isWritingNFT && NFTPrice"
-            :collected-count="mintedCount"
-            @collect="handleCollectFromSupplySection"
-          />
-          <NFTPageCollectorList
-            class="desktop:hidden"
-            :owner-count="ownerCount"
-            :items="populatedCollectors"
-          />
-          <NFTPageEventList
+        </section>
+
+        <Separator class="mx-auto" />
+
+        <section>
+          <NFTPageChainDataSection
             :items="populatedEvents"
+            :is-loading="isHistoryInfoLoading"
+            :content-url="NFTExternalUrl"
+            :iscn-id="iscnId"
+            :iscn-url="iscnURL"
+            :content-fingerprints="nftISCNContentFingerprints"
           />
-        </div>
-      </section>
+        </section>
+      </div>
     </div>
-    <EventModalTransfer
-      :is-open="isOpenTransferModal"
-      :is-transferring="isTransferring"
-      :is-ready-to-transfer="isReadyToTransfer"
-      :error-msg="errorMsg"
-      :to-address="toAddress"
-      :user-collected-count="userCollectedCount"
-      @close="isOpenTransferModal = false; isTransferring = false"
-      @handle-input-addr="handleInputAddr"
-      @on-transfer="onTransfer"
-    />
   </Page>
 </template>
 
@@ -126,13 +120,14 @@
 import { mapActions } from 'vuex';
 
 import { logTrackerEvent, logPurchaseFlowEvent } from '~/util/EventLogger';
-import { LIKE_ADDRESS_REGEX } from '~/util/nft';
+import { EXTERNAL_HOST } from '~/constant';
 
 import nftMixin from '~/mixins/nft';
 import clipboardMixin from '~/mixins/clipboard';
 import navigationListenerMixin from '~/mixins/navigation-listener';
 
 export default {
+  name: 'NFTClassDetailsPage',
   layout: 'default',
   mixins: [clipboardMixin, nftMixin, navigationListenerMixin],
   head() {
@@ -164,6 +159,11 @@ export default {
           property: 'og:image',
           content: ogImage,
         },
+        {
+          hid: 'likecoin:wallet',
+          name: 'likecoin:wallet',
+          content: this.iscnOwner,
+        },
       ],
       link: [{ rel: 'canonical', href: `${this.$route.path}` }],
       script: this.purchaseInfo.price
@@ -183,7 +183,7 @@ export default {
                   },
                   sku: this.classId,
                   iscn: this.iscnId,
-                  url: this.$route.path,
+                  url: `${EXTERNAL_HOST}${this.$route.path}`,
                   offers: {
                     '@type': 'Offer',
                     price: this.NFTPriceUSD,
@@ -201,16 +201,11 @@ export default {
   },
   data() {
     return {
-      toAddress: null,
       isLoading: true,
 
-      currentPrice: 0,
       isOpenTransferModal: false,
-      errorMsg: '',
-      isReadyToTransfer: false,
       isTransferring: false,
       isCollecting: false,
-      hasHoverSellButton: false,
     };
   },
   computed: {
@@ -220,12 +215,15 @@ export default {
     isTransferDisabled() {
       return this.isOwnerInfoLoading || !this.userCollectedCount;
     },
+    isShowPriceSection() {
+      return this.nftIsWritingNFT && this.NFTPrice !== undefined;
+    },
   },
   asyncData({ query }) {
     const { action } = query;
     return { action };
   },
-  async fetch({ route, store, redirect }) {
+  async fetch({ route, store, redirect, error }) {
     const { classId } = route.params;
     const { referrer } = route.query;
     if (referrer) {
@@ -236,13 +234,31 @@ export default {
       });
       return;
     }
-    await Promise.all([
-      store.dispatch('fetchNFTMetadata', classId),
-      store
-        .dispatch('fetchNFTPurchaseInfo', classId)
+    try {
+      await Promise.all([
+        store.dispatch('fetchNFTClassMetadata', classId),
+        store.dispatch('lazyGetNFTPurchaseInfo', classId).catch(err => {
+          if (err.response?.data !== 'NFT_CLASS_NOT_FOUND') {
+            // eslint-disable-next-line no-console
+            console.error(JSON.stringify(err));
+          }
+        }),
+      ]);
+    } catch (err) {
+      if (err.response?.data?.code === 3) {
+        error({
+          statusCode: 404,
+          message: 'NFT_NOT_FOUND',
+        });
+      } else {
         // eslint-disable-next-line no-console
-        .catch(err => JSON.stringify(console.error(err))),
-    ]);
+        console.error(JSON.stringify(err));
+        error({
+          statusCode: 500,
+          message: 'NFT_FETCH_ERROR',
+        });
+      }
+    }
   },
   async mounted() {
     try {
@@ -268,7 +284,8 @@ export default {
     } else {
       logPurchaseFlowEvent(this, 'view_item', {
         name: this.NFTName,
-        price: this.purchaseInfo.price,
+        price: this.NFTPriceUSD,
+        currency: 'USD',
         classId: this.classId,
       });
     }
@@ -278,52 +295,13 @@ export default {
     onToggleTransfer() {
       this.isOpenTransferModal = true;
       this.isTransferring = false;
-      this.isReadyToTransfer = false;
-      this.toAddress = null;
 
       this.uiSetTxError('');
       this.uiSetTxStatus('');
       this.fetchUserCollectedCount();
     },
-    async onTransfer() {
-      logTrackerEvent(this, 'NFT', 'NFTTransfer(DetailsPage)', this.classId, 1);
-      this.isTransferring = true;
-      await this.transferNFT();
-    },
-    handleInputAddr(value) {
-      if (!LIKE_ADDRESS_REGEX.test(value)) {
-        this.errorMsg = this.$t(
-          'nft_details_page_errormessage_transfer_invalid'
-        );
-        return;
-      }
-      if (value === this.getAddress) {
-        this.errorMsg = this.$t('nft_details_page_errormessage_transfer_self');
-        return;
-      }
-      this.errorMsg = '';
-      this.toAddress = value;
-      this.isReadyToTransfer = true;
-    },
     async handleCollect() {
-      logPurchaseFlowEvent(this, 'begin_checkout', {
-        name: this.NFTName,
-        price: this.purchaseInfo.price,
-        classId: this.classId,
-      });
       logTrackerEvent(this, 'NFT', 'NFTCollect(DetailsPage)', this.classId, 1);
-      if (!this.getAddress) {
-        const isConnected = await this.connectWallet();
-        if (isConnected) {
-          this.handleCollect();
-        }
-        return;
-      }
-      logPurchaseFlowEvent(this, 'add_shipping_info', {
-        name: this.NFTName,
-        price: this.purchaseInfo.price,
-        classId: this.classId,
-      });
       try {
         this.isCollecting = true;
         await this.collectNFT();
@@ -332,6 +310,15 @@ export default {
       } finally {
         this.isCollecting = false;
       }
+    },
+    handleViewContent() {
+      logTrackerEvent(
+        this,
+        'NFT',
+        'nft_details_page_view_content',
+        this.classId,
+        1
+      );
     },
     handleCollectFromPreviewSection() {
       logTrackerEvent(
@@ -353,6 +340,16 @@ export default {
       );
       return this.handleCollect();
     },
+    handleCollectFromControlBar() {
+      logTrackerEvent(
+        this,
+        'NFT',
+        'NFTCollect(ClassDetailsPageControlBar)',
+        this.nftId,
+        1
+      );
+      return this.handleCollect();
+    },
     handleClickSellFromPriceSection() {
       logTrackerEvent(
         this,
@@ -363,16 +360,13 @@ export default {
       );
     },
     handleHoverSellFromPriceSection() {
-      if (!this.hasHoverSellButton) {
-        logTrackerEvent(
-          this,
-          'NFT',
-          'NFTSellHover(DetailsPagePriceSection)',
-          this.classId,
-          1
-        );
-        this.hasHoverSellButton = true;
-      }
+      logTrackerEvent(
+        this,
+        'NFT',
+        'NFTSellHover(DetailsPagePriceSection)',
+        this.classId,
+        1
+      );
     },
     handleCollectFromSupplySection() {
       logTrackerEvent(
@@ -388,7 +382,7 @@ export default {
       this.shareURLPath({
         title: this.NFTName,
         text: this.NFTDescription,
-        path: this.nftDetailsPageURL,
+        path: this.nftClassDetailsPageURL,
         alertMessage: this.$t('tooltip_share_done'),
       });
       logTrackerEvent(this, 'NFT', 'CopyShareURL(Details)', this.classId, 1);

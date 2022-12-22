@@ -50,7 +50,7 @@
               class="underline text-like-green font-600"
               :href="stakingManagementUrl"
               target="_blank"
-              rel="noreferrer noopener"
+              rel="noopener"
             >{{
               stakingValidatorName
             }}</a>
@@ -152,7 +152,7 @@
               :href="stakingManagementUrl"
               preset="outline"
               target="_blank"
-              rel="noreferrer noopener"
+              rel="noopener"
             >
               <template #prepend>
                 <PlusIcon class="w-20 h-20" />
@@ -177,6 +177,7 @@
       />
       <div class="p-32 mt-32 overflow-hidden bg-white rounded-8">
         <img
+          loading="lazy"
           class="rounded-[8px]"
           src="/images/og/writing-nft.jpg"
           :alt="$t('civic_dashboard_v3_intro_title')"

@@ -8,6 +8,7 @@
         class="avatar__image"
         :src="imageSrc"
         :style="imageStyle"
+        :loading="loadingType"
       >
       <div
         v-if="isOutlined"
@@ -35,6 +36,7 @@
 </template>
 
 <script>
+import { getLikeCoResizedImageUrl } from '@/util/ui';
 import { DEFAULT_AVATAR } from '../../constant';
 
 export default {
@@ -60,6 +62,10 @@ export default {
       type: Boolean,
       default: false,
     },
+    isLazyLoaded: {
+      type: Boolean,
+      default: false,
+    },
   },
   computed: {
     rootClass() {
@@ -72,7 +78,7 @@ export default {
       ];
     },
     imageSrc() {
-      return this.url || DEFAULT_AVATAR;
+      return getLikeCoResizedImageUrl(this.url || DEFAULT_AVATAR, this.size);
     },
     imageStyle() {
       const borderWidth = `${this.size * 0.05}px`;
@@ -82,6 +88,9 @@ export default {
         height: width,
         borderWidth,
       };
+    },
+    loadingType() {
+      return this.isLazyLoaded ? 'lazy' : undefined;
     },
   },
 };

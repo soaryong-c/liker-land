@@ -12,13 +12,12 @@
     <tbody>
       <tr
         v-for="event in nftHistory"
-        :key="`${event.txHash}event`"
+        :key="[event.txHash, event.classId, event.nftId, event.event].join('-')"
         class="py-[12px] border-b-shade-gray border-b-[1px] text-dark-gray"
       >
         <td>
           <Label
             v-if="event.event === 'purchase'"
-            class="break-all"
             :text="$t('nft_details_page_activity_list_event_collect')"
           >
             <template #prepend>
@@ -26,8 +25,15 @@
             </template>
           </Label>
           <Label
+            v-else-if="event.event === 'buy_nft'"
+            :text="$t('nft_details_page_activity_list_event_buy_nft')"
+          >
+            <template #prepend>
+              <IconCircle />
+            </template>
+          </Label>
+          <Label
             v-else-if="event.event === 'transfer'"
-            class="break-all"
             :text="$t('nft_details_page_activity_list_event_transfer')"
           >
             <template #prepend>
@@ -36,21 +42,35 @@
           </Label>
           <Label
             v-else-if="event.event === 'mint_nft'"
-            class="break-all"
             :text="$t('nft_details_page_activity_list_event_mint_nft')"
-          />
+          >
+            <template #prepend>
+              <IconFlare />
+            </template>
+          </Label>
           <Label
             v-else-if="event.event === 'new_class'"
-            class="break-all"
             :text="$t('nft_details_page_activity_list_event_create_class')"
-          />
+          >
+            <template #prepend>
+              <IconFlare />
+            </template>
+          </Label>
+          <Label
+            v-else
+            :text="event.event"
+          >
+            <template #prepend>
+              <IconCircle />
+            </template>
+          </Label>
         </td>
         <td>
           <Label v-if="event.price" class="break-all" :text="event.price | formatNumber" />
           <Label v-else class="break-all" text="-" />
         </td>
         <td>
-          <LinkV2 v-if="event.event === 'transfer'" :to="`/${event.fromWallet}`">
+          <LinkV2 v-if="['new_class', 'mint_nft' ,'transfer', 'buy_nft'].includes(event.event)" :to="`/${event.fromWallet}`">
             <Label class="break-all">{{
               event.fromDisplayName | ellipsis
             }}</Label>
@@ -58,7 +78,7 @@
           <Label v-else>-</Label>
         </td>
         <td>
-          <LinkV2 v-if="event.event === 'transfer' || event.event === 'purchase'" :to="`/${event.toWallet}`">
+          <LinkV2 v-if="['purchase' ,'transfer', 'buy_nft'].includes(event.event)" :to="`/${event.toWallet}`">
             <Label class="break-all">{{
               event.toDisplayName | ellipsis
             }}</Label>
@@ -66,8 +86,9 @@
           <Label v-else>-</Label>
         </td>
         <td>
-          <LinkV2 class="text-left" :href="getChainRawTx(event.txHash)">
+          <LinkV2 class="text-left" :href="getChainExplorerTx(event.txHash)">
             <TimeAgo
+              class="px-[2px]"
               long
               tooltip
               :datetime="event.timestamp"
@@ -81,7 +102,7 @@
 <script>
 import { ellipsis, formatNumber } from '~/util/ui';
 import { TimeAgo } from 'vue2-timeago';
-import { getChainRawTx } from '~/util/api';
+import { getChainExplorerTx } from '~/util/api';
 
 export default {
   name: 'EventListTable',
@@ -96,7 +117,7 @@ export default {
       default: undefined,
     },
   },
-  methods: { getChainRawTx },
+  methods: { getChainExplorerTx },
 };
 </script>
 

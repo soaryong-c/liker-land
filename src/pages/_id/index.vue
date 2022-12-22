@@ -1,5 +1,5 @@
 <template>
-  <Page>
+  <Page class="px-[8px]">
 
     <div
       :class="[
@@ -7,27 +7,28 @@
 
         'flex-col',
         'desktop:flex-row',
+        'gap-x-[24px]',
+        'gap-y-[48px]',
 
         'items-center',
         'desktop:items-start',
         'desktop:justify-center',
 
+        'w-full',
         'mt-[32px]',
       ]"
     >
+      {{ /* Left Column */ }}
       <div
         :class="[
-          'mb-[24px]',
-          'desktop:mr-[24px]',
-
-          'w-full',
+          'flex',
+          'flex-col',
+          'gap-y-[24px]',
+          'min-w-[280px]',
           'desktop:w-[280px]',
         ]"
       >
-        <NFTPortfolioUserInfo
-          :user-info="userInfo"
-          :wallet="wallet"
-        >
+        <NFTPortfolioUserInfo :wallet="wallet">
           <div class="flex justify-between w-[44px] mx-auto mt-[16px] mb-[24px] text-shade-gray">
             <IconEllipse />
             <IconEllipse />
@@ -35,16 +36,16 @@
           </div>
           <UserStatsPortfolio
             class="grid grid-cols-2 cursor-default gap-x-8 gap-y-4 text-medium-gray"
-            :collected-class-ids="collectedClassIds"
-            :created-class-ids="createdClassIds"
-            :is-loading="isLoading"
+            :stat-wallet="wallet"
           />
         </NFTPortfolioUserInfo>
-        <div class="flex justify-center mt-[18px]">
+        <div
+          v-if="isUserPortfolio"
+          class="flex justify-center mt-[16px] mb-[24px]"
+        >
           <ButtonV2
-            v-if="getAddress === wallet"
             preset="outline"
-            text="My Dashboard"
+            :text="$t('main_menu_my_dashboard')"
             @click="goMyDashboard"
           >
             <template #prepend>
@@ -52,108 +53,38 @@
             </template>
           </ButtonV2>
         </div>
+        <NFTPortfolioSubscriptionForm
+          v-else
+          id="creator-follow"
+          class="w-full"
+          :creator-wallet-address="wallet"
+          :creator-display-name="userDisplayName"
+          :is-empty="false"
+        />
       </div>
-      <div
-        :class="[
-          'flex',
-          'flex-col',
-          'items-center',
-          'w-full',
-          'max-w-[636px]',
-          'desktop:w-[636px]',
-        ]"
-      >
-        <div :class="['flex','items-center','mb-[48px]','w-full']">
-          <div
-            :class="[
-              'flex',
-              'justify-center',
-              'items-center',
-              'p-[4px]',
-              'mx-auto',
-              'bg-shade-gray',
-              'rounded-[14px]',
-            ]"
-          >
-            <MenuButton
-              text="Collected"
-              :is-selected="currentTab === 'collected'"
-              @click="handleGoCollected"
-            />
-            <MenuButtonDivider />
-            <MenuButton
-              text="Created"
-              :is-selected="currentTab === 'created'"
-              @click="handleGoCreated"
-            />
-          </div>
-          <ShareButton @copy="handleShare" />
-        </div>
 
-        <CardV2 v-if="isLoading">Loading</CardV2>
-        <div v-else>
-          <ul
-            v-if="currentTab === 'collected'"
-            :class="[
-              'w-full',
-              'mx-auto',
+      {{ /* Right Column */ }}
+      <NFTPortfolioMainView
+        key="portfolio"
+        ref="portfolioMainView"
+        :portfolio-wallet="wallet"
+        :portfolio-tab="currentTab"
+        :portfolio-items="currentNFTClassList"
+        :portfolio-items-show-count="currentNFTClassListShowCount"
+        :portfolio-items-sorting="currentNFTClassListSorting"
+        :portfolio-items-sorting-order="currentNFTClassListSortingOrder"
+        :portfolio-items-sorting-option-list="currentNFTClassSortingOptionList"
+        :is-loading-portfolio-items="isLoading"
+        :is-show-other-tab="isShowOtherTab"
+        :is-narrow="true"
+        @portfolio-change-tab="handleTabChange"
+        @portfolio-change-sorting="handleNFTClassListSortingChange"
+        @infinite-scroll="handleInfiniteScroll"
+      />
 
-              'columns-1',
-              'laptop:columns-2',
-
-              'gap-[16px]',
-            ]"
-          >
-            <li>
-              <NFTPortfolioEmpty v-if="!sortedCollectedClassIds.length" preset="collected" />
-            </li>
-            <li
-              v-for="id in sortedCollectedClassIds"
-              :key="id"
-            >
-              <NFTPortfolioItem
-                :class-id="id"
-                class="mb-[16px]"
-              />
-            </li>
-          </ul>
-
-          <ul
-            v-if="currentTab === 'created'"
-            :class="[
-              'w-full',
-              'mx-auto',
-
-              'columns-1',
-              'laptop:columns-2',
-
-              'gap-[16px]',
-            ]"
-          >
-            <li>
-              <NFTPortfolioEmpty v-if="!sortedCreatedClassIds.length" preset="created" />
-            </li>
-            <li
-              v-for="id in sortedCreatedClassIds"
-              :key="id"
-            >
-              <NFTPortfolioItem
-                :class-id="id"
-                class="mb-[16px]"
-              />
-            </li>
-          </ul>
-          <div class="flex flex-col items-center my-[48px] w-full">
-            <div class="w-[32px] h-[2px] bg-shade-gray mb-[32px]" />
-            <ButtonV2
-              preset="outline"
-              :text="$t('portfolio_finding_more_button')"
-              to="/campaign/writing-nft"
-            />
-          </div>
-        </div>
-      </div>
     </div>
+
+    <NuxtChild />
   </Page>
 </template>
 
@@ -162,15 +93,106 @@ import { getUserMinAPI } from '~/util/api';
 import { convertAddressPrefix, isValidAddress } from '~/util/cosmos';
 import { logTrackerEvent } from '~/util/EventLogger';
 import { checkUserNameValid } from '~/util/user';
+import { EXTERNAL_HOST } from '~/constant';
 
 import walletMixin from '~/mixins/wallet';
-import portfolioMixin from '~/mixins/portfolio';
+import portfolioMixin, { tabOptions } from '~/mixins/portfolio';
 
 export default {
   name: 'NFTPortfolioPage',
   layout: 'default',
   mixins: [walletMixin, portfolioMixin],
-  async asyncData({ route, $api, error, store }) {
+  head() {
+    const name = this.userDisplayName;
+    const title = this.$t('portfolio_title', { name });
+    const description = this.$t('portfolio_description');
+    const image = this.userAvatar;
+    return {
+      title,
+      meta: [
+        {
+          hid: 'og:title',
+          property: 'og:title',
+          content: title,
+        },
+        {
+          hid: 'description',
+          name: 'description',
+          content: description,
+        },
+        {
+          hid: 'og:description',
+          property: 'og:description',
+          content: description,
+        },
+        {
+          hid: 'og:image',
+          property: 'og:image',
+          content: image,
+        },
+        {
+          hid: 'likecoin:wallet',
+          name: 'likecoin:wallet',
+          content: this.wallet,
+        },
+      ],
+      script: [
+        {
+          hid: 'schema',
+          innerHTML: JSON.stringify({
+            '@context': 'http://www.schema.org',
+            '@type': 'Person',
+            name,
+            image,
+            identifier: this.wallet,
+          }),
+          type: 'application/ld+json',
+          body: true,
+        },
+      ],
+      link: [{ rel: 'canonical', href: `${EXTERNAL_HOST}/${this.wallet}` }],
+    };
+  },
+  computed: {
+    wallet() {
+      return this.$route.params.id;
+    },
+    isUserPortfolio() {
+      return this.wallet === this.getAddress;
+    },
+  },
+  watch: {
+    isLoading(isLoading) {
+      if (!isLoading) {
+        if (
+          // If collected tab is empty
+          this.isCurrentTabCollected &&
+          !this.nftClassListOfCollectedExcludedOther.length
+        ) {
+          if (this.nftClassListOfOther.length) {
+            // Go to other tab if not empty
+            this.changeTab(tabOptions.other);
+          } else {
+            // Go to created tab if other tab is empty
+            this.changeTab(tabOptions.created);
+          }
+        } else if (
+          // If other tab is empty
+          this.isCurrentTabOther &&
+          !this.nftClassListOfOther.length
+        ) {
+          if (this.nftClassListOfCollectedExcludedOther.length) {
+            // Go to collected tab if not empty
+            this.changeTab(tabOptions.other);
+          } else {
+            // Go to created tab if collected tab is empty
+            this.changeTab(tabOptions.created);
+          }
+        }
+      }
+    },
+  },
+  async asyncData({ route, $api, error, store, redirect }) {
     let { id } = route.params;
     if (id && isValidAddress(id)) {
       if (id.startsWith('cosmos1')) {
@@ -178,28 +200,19 @@ export default {
       }
       if (id.startsWith('like1')) {
         try {
-          const userInfo = await store.dispatch('fetchUserInfoByAddress', id);
-          return {
-            userInfo,
-            wallet: id,
-          };
+          await store.dispatch('fetchUserInfoByAddress', id);
         } catch (error) {
           // eslint-disable-next-line no-console
           console.error(error);
         }
-        return {
-          wallet: id,
-          userInfo: undefined,
-        };
+        return;
       }
     }
     if (id && checkUserNameValid(id)) {
       try {
         const userInfo = await $api.$get(getUserMinAPI(id));
-        return {
-          userInfo,
-          wallet: userInfo.likeWallet,
-        };
+        redirect({ ...route, params: { id: userInfo.likeWallet } });
+        return;
       } catch (err) {
         const msg = (err.response && err.response.data) || err;
         // eslint-disable-next-line no-console
@@ -207,23 +220,42 @@ export default {
       }
     }
     error({ statusCode: 404, message: 'LIKER_NOT_FOUND' });
-    return undefined;
   },
-  async mounted() {
-    await this.loadNFTListByAddress(this.wallet);
+  mounted() {
+    this.syncRouteForTab();
+    this.loadNFTListByAddress(this.wallet);
   },
   methods: {
-    handleGoCollected() {
-      logTrackerEvent(this, 'UserPortfolio', 'GoCollectedTab', this.wallet, 1);
-      this.goCollected();
-    },
-    handleGoCreated() {
-      logTrackerEvent(this, 'UserPortfolio', 'GoCreatedTab', this.wallet, 1);
-      this.goCreated();
-    },
-    handleShare() {
-      this.copySharePageURL(this.wallet, this.getAddress);
-      logTrackerEvent(this, 'UserPortfolio', 'CopyShareURL', this.wallet, 1);
+    handleTabChange(tab) {
+      switch (tab) {
+        case tabOptions.collected:
+          logTrackerEvent(
+            this,
+            'UserPortfolio',
+            'GoCollectedTab',
+            this.wallet,
+            1
+          );
+          break;
+
+        case tabOptions.created:
+          logTrackerEvent(
+            this,
+            'UserPortfolio',
+            'GoCreatedTab',
+            this.wallet,
+            1
+          );
+
+          break;
+        case tabOptions.other:
+          logTrackerEvent(this, 'UserPortfolio', 'GoOtherTab', this.wallet, 1);
+          break;
+
+        default:
+          break;
+      }
+      this.changeTab(tab);
     },
     goMyDashboard() {
       logTrackerEvent(this, 'UserPortfolio', 'GoToMyDashboard', this.wallet, 1);

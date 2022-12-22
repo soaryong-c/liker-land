@@ -1,11 +1,12 @@
 import querystring from 'querystring';
 import {
   CIVIC_LIKER_CLASSIC_LIKER_ID,
-  IS_TESTNET,
+  EXTERNAL_HOST,
   LIKECOIN_API_BASE,
+  LIKECOIN_CHAIN_VIEW_TX,
   LIKECOIN_CHAIN_API,
   LIKE_CO_THUMBNAIL_FN_BASE,
-  SUPERLIKE_BASE,
+  LIKECOIN_NFT_API_WALLET,
 } from '../../constant';
 import { normalizeLocaleForLikeCo } from '../../locales';
 
@@ -35,37 +36,6 @@ export const getAppURL = ({
   )}`;
 };
 
-export const getPaypalPaymentPageURL = (likerId, custom) => {
-  let baseURL = IS_TESTNET
-    ? `https://www.sandbox.paypal.com/cgi-bin/webscr?cmd=_s-xclick&hosted_button_id=4FL73FNJBUXFA&on0=LikerID&os0=${likerId}`
-    : `https://www.paypal.com/cgi-bin/webscr?cmd=_s-xclick&hosted_button_id=WW2TNJJXZ3MDY&on0=LikerID&os0=${likerId}`;
-  if (custom) {
-    baseURL += `&custom=${encodeURIComponent(JSON.stringify(custom))}`;
-  }
-  return baseURL;
-};
-
-export const getPaypalUnsubscribeURL = () =>
-  `https://www.${
-    IS_TESTNET ? 'sandbox.' : ''
-  }paypal.com/hk/customerprofileweb?cmd=_manage-paylist`;
-export const getOiceSettingsURL = () => 'https://oice.com/profile';
-
-export const getSuperLikeRedirectLink = superLikeID =>
-  `${SUPERLIKE_BASE}/${superLikeID}`;
-
-export const getFetchLikedUserApi = () => `/api/reader/index`;
-export const getFetchUserSuperLikeAPI = user =>
-  `/api/reader/users/${user}/superlike`;
-export const getFollowedUserAPI = user => `/api/reader/follow/user/${user}`;
-export const getFetchReaderBookmarkAPI = () => '/api/reader/bookmark';
-export const getUpdateReaderBookmarkAPI = url =>
-  `/api/reader/bookmark?url=${encodeURIComponent(url)}`;
-export const getFetchSuggestArticlesApi = () => `/api/reader/works/suggest`;
-export const getFetchPersonalSuggestArticlesApi = () =>
-  `/api/reader/works/suggest/personal`;
-export const getFetchFollowedSuperLikeApi = () =>
-  `/api/reader/superlike/followed`;
 export const getOAuthRegisterAPI = ({
   language = 'zh',
   from = '',
@@ -105,7 +75,6 @@ export const getArticleDetailAPI = ({ url = '', iscnId = '' }) =>
     iscnId
   )}&url=${encodeURIComponent(url)}`;
 
-export const updateProfile = () => `/api/users/self/update`;
 export const userPreferences = () => `/api/users/preferences`;
 
 export const getLikerOgImage = id =>
@@ -155,20 +124,47 @@ export const getNFTMetadata = ({ iscnId, classId, nftId }) => {
   )}`;
 };
 
-export const getUserSellNFTClasses = ({ wallet }) =>
-  `${LIKECOIN_API_BASE}/likernft/user/${wallet}/sell`;
+export const getUserNFTStats = wallet =>
+  `${LIKECOIN_API_BASE}/likernft/user/${wallet}/stats`;
 
 export const getLIKEPrice = () =>
   `https://api.coingecko.com/api/v3/simple/price?ids=likecoin&vs_currencies=usd`;
 
+export const getChainExplorerTx = hash => `${LIKECOIN_CHAIN_VIEW_TX}/${hash}`;
+
 export const getChainRawTx = hash =>
   `${LIKECOIN_CHAIN_API}/cosmos/tx/v1beta1/txs/${hash}`;
+
+export const getChainNFTClassMetadataEndpoint = classId =>
+  `${LIKECOIN_CHAIN_API}/cosmos/nft/v1beta1/classes/${classId}`;
+
+export const getChainNFTMetadataEndpoint = (classId, nftId) =>
+  `${LIKECOIN_CHAIN_API}/cosmos/nft/v1beta1/nfts/${classId}/${nftId}`;
 
 export const getISCNRecord = iscnId => {
   const qsPayload = {
     iscn_id: iscnId,
   };
   return `${LIKECOIN_CHAIN_API}/iscn/records/id?${querystring.stringify(
+    qsPayload
+  )}`;
+};
+
+export const getNFTClassesPartial = ({ owner, limit, key }) => {
+  const qsPayload = { iscn_owner: owner }; // TODO: support account based query
+  if (limit) qsPayload['pagination.limit'] = limit;
+  if (key) qsPayload['pagination.key'] = key;
+  return `${LIKECOIN_CHAIN_API}/likechain/likenft/v1/class?${querystring.stringify(
+    qsPayload
+  )}`;
+};
+
+export const getNFTsPartial = ({ owner, expandClasses, limit, key }) => {
+  const qsPayload = { owner };
+  if (expandClasses) qsPayload.expand_classes = 1;
+  if (limit) qsPayload['pagination.limit'] = limit;
+  if (key) qsPayload['pagination.key'] = key;
+  return `${LIKECOIN_CHAIN_API}/likechain/likenft/v1/nft?${querystring.stringify(
     qsPayload
   )}`;
 };
@@ -182,10 +178,20 @@ export const getNFTOwners = classId => {
   )}`;
 };
 
-export const getNFTEvents = ({ classId, limit, key }) => {
+export const getNFTEvents = ({
+  classId,
+  nftId,
+  limit,
+  key,
+  actionType,
+  ignoreToList,
+}) => {
   const qsPayload = {
     class_id: classId,
+    nft_id: nftId,
+    action_type: actionType,
   };
+  if (ignoreToList) qsPayload.ignore_to_list = ignoreToList;
   if (key) qsPayload.key = key;
   if (limit) qsPayload.limit = limit;
   return `${LIKECOIN_CHAIN_API}/likechain/likenft/v1/event?${querystring.stringify(
@@ -193,11 +199,12 @@ export const getNFTEvents = ({ classId, limit, key }) => {
   )}`;
 };
 
-export const postNFTPurchase = ({ txHash, iscnId, classId }) => {
+export const postNFTPurchase = ({ txHash, iscnId, classId, ts }) => {
   const qsPayload = {
     tx_hash: txHash,
     iscn_id: iscnId,
     class_id: classId,
+    ts,
   };
   return `${LIKECOIN_API_BASE}/likernft/purchase?${querystring.stringify(
     qsPayload
@@ -242,3 +249,22 @@ export const getStripeFiatPrice = ({ classId }) => {
     qsPayload
   )}`;
 };
+
+export const getLatestNFTClasses = `${LIKECOIN_CHAIN_API}/likechain/likenft/v1/class?reverse=true`;
+export const getTopNFTClasses = `${LIKECOIN_CHAIN_API}/likechain/likenft/v1/ranking?ignore_list=${LIKECOIN_NFT_API_WALLET}`;
+
+export const getIdenticonAvatar = id =>
+  `https://avatars.dicebear.com/api/identicon/${id}.svg?background=%23ffffff`;
+
+export const nftMintSubscriptionAPI = ({ id, email, wallet }) => {
+  const qsPayload = { email, wallet };
+  return `${EXTERNAL_HOST}/api/nft/mint-subscription${
+    id ? `/${id}` : ''
+  }?${querystring.stringify(qsPayload)}`;
+};
+
+export const getUserV2Self = () => '/api/v2/users/self';
+export const postUserV2Login = () => '/api/v2/users/login';
+
+export const getNFTDisplayStateURL = wallet =>
+  `/api/v2/users/${wallet}/nfts/display-state`;

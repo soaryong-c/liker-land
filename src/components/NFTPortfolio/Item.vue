@@ -1,22 +1,31 @@
 <template>
   <NuxtLink
-    class="mx-auto break-inside-avoid"
-    :to="{ name: 'nft-class-classId', params: { classId } }"
+    :to="detailsPageRoute"
     @click.native="handleClickViewDetails"
   >
     <NFTPortfolioBase
-      :class-id="classId"
+      class="w-[310px]"
       :title="NFTName"
       :price="NFTPrice"
-      :collected-count="mintedCount"
+      :class-collection-type="nftClassCollectionType"
+      :class-collection-name="nftClassCollectionName"
+      :is-collectable="nftIsCollectable"
+      :collected-count="collectedCount"
       :collector-count="ownerCount"
-      :user-display-name="iscnOwnerDisplayName"
-      :user-avatar-src="iscnOwnerAvatar"
-      :is-user-civic-liker="isCivicLiker"
+      :user-display-name="creatorDisplayName"
+      :user-avatar-src="creatorAvatar"
+      :is-user-civic-liker="isCreatorCivicLiker"
       :image-src="NFTImageUrl"
       :is-collecting="uiIsOpenCollectModal && isCollecting"
       :own-count="ownCount"
+      :display-state="nftDisplayState"
       @collect="handleClickCollect"
+      @load-cover="handleCoverLoaded"
+    />
+    <NFTFeatured
+      :class-id="classId"
+      :read-only="$route.name !== 'dashboard'"
+      :display-state="nftDisplayState"
     />
   </NuxtLink>
 </template>
@@ -33,6 +42,14 @@ export default {
       type: String,
       required: true,
     },
+    portfolioWallet: {
+      type: String,
+      required: true,
+    },
+    nftId: {
+      type: String,
+      default: undefined,
+    },
   },
 
   data() {
@@ -40,23 +57,33 @@ export default {
       isCollecting: false,
     };
   },
-  async mounted() {
-    await this.updateNFTClassMetadata();
-    this.updateNFTOwners();
-    // wait for metadata to determine if it is writing NFT
-    if (this.isWritingNFT) this.updateNFTPurchaseInfo();
+  computed: {
+    nftIdCollectedFirstByPortfolio() {
+      return this.collectorMap[this.portfolioWallet]?.[0];
+    },
+    nftIdForDetails() {
+      return (
+        this.nftId ||
+        this.nftIdCollectNext ||
+        this.nftIdCollectedFirstByPortfolio
+      );
+    },
+    detailsPageRoute() {
+      if (this.nftIdForDetails) {
+        return {
+          name: 'nft-class-classId-nftId',
+          params: {
+            classId: this.classId,
+            nftId: this.nftIdForDetails,
+          },
+        };
+      }
+      return { name: 'nft-class-classId', params: { classId: this.classId } };
+    },
   },
   methods: {
     async handleClickCollect() {
       logTrackerEvent(this, 'NFT', 'NFTCollect(Portfolio)', this.classId, 1);
-      if (!this.getAddress) {
-        const isConnected = await this.connectWallet();
-        if (isConnected) {
-          this.handleClickCollect();
-        }
-        return;
-      }
-
       try {
         this.isCollecting = true;
         await this.collectNFT();
@@ -74,6 +101,9 @@ export default {
         this.classId,
         1
       );
+    },
+    handleCoverLoaded(e) {
+      this.$emit('load-cover', e);
     },
   },
 };

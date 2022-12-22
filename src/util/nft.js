@@ -1,19 +1,45 @@
 // eslint-disable-next-line import/no-extraneous-dependencies
 import { BigNumber } from 'bignumber.js';
-import { ISCNQueryClient, ISCNSigningClient } from '@likecoin/iscn-js';
-import { parseNFTClassDataFields } from '@likecoin/iscn-js/dist/messages/parsing';
-import { PageRequest } from 'cosmjs-types/cosmos/base/query/v1beta1/pagination';
 import { TxRaw } from 'cosmjs-types/cosmos/tx/v1beta1/tx';
+import * as api from '@/util/api';
+import { deriveAllPrefixedAddresses } from './cosmos';
 import {
+  ARWEAVE_ENDPOINT,
+  IPFS_VIEW_GATEWAY_URL,
   LIKECOIN_CHAIN_NFT_RPC,
   LIKECOIN_CHAIN_MIN_DENOM,
   LIKECOIN_NFT_API_WALLET,
 } from '../constant';
 
 let queryClient = null;
+let iscnLib = null;
+
+export const NFT_INDEXER_LIMIT_MAX = 100;
+
+export const NFT_CLASS_LIST_SORTING = {
+  PRICE: 'PRICE',
+  ISCN_TIMESTAMP: 'ISCN_TIMESTAMP',
+  LAST_COLLECTED_NFT: 'LAST_COLLECTED_NFT',
+  NFT_OWNED_COUNT: 'NFT_OWNED_COUNT',
+  DISPLAY_STATE: 'DISPLAY_STATE',
+};
+
+export const NFT_CLASS_LIST_SORTING_ORDER = {
+  ASC: 'ASC',
+  DESC: 'DESC',
+};
+
+export async function getISCNLib() {
+  if (!iscnLib) {
+    iscnLib = await import(/* webpackChunkName: "iscn_js" */ '@likecoin/iscn-js');
+  }
+  return iscnLib;
+}
+
 export async function getNFTQueryClient() {
   if (!queryClient) {
-    const client = new ISCNQueryClient();
+    const iscn = await getISCNLib();
+    const client = new iscn.ISCNQueryClient();
     await client.connect(LIKECOIN_CHAIN_NFT_RPC);
     queryClient = client;
   }
@@ -21,7 +47,8 @@ export async function getNFTQueryClient() {
 }
 
 export async function createNFTSigningClient(signer) {
-  const client = new ISCNSigningClient();
+  const iscn = await getISCNLib();
+  const client = new iscn.ISCNSigningClient();
   await client.connectWithSigner(LIKECOIN_CHAIN_NFT_RPC, signer);
   return client;
 }
@@ -30,26 +57,9 @@ export async function getClassInfo(classId) {
   const c = await getNFTQueryClient();
   const client = await c.getQueryClient();
   let { class: nftClass } = await client.nft.class(classId);
-  if (nftClass) nftClass = parseNFTClassDataFields(nftClass);
+  const iscn = await getISCNLib();
+  if (nftClass) nftClass = iscn.parseNFTClassDataFields(nftClass);
   return nftClass;
-}
-
-export async function getNFTs({ classId = '', owner = '' }) {
-  const c = await getNFTQueryClient();
-  const client = await c.getQueryClient();
-  let nfts = [];
-  let next = new Uint8Array([0x00]);
-  do {
-    /* eslint-disable no-await-in-loop */
-    const res = await client.nft.NFTs(
-      classId,
-      owner,
-      PageRequest.fromPartial({ key: next })
-    );
-    ({ nextKey: next } = res.pagination);
-    nfts = nfts.concat(res.nfts);
-  } while (next && next.length);
-  return { nfts };
 }
 
 export async function getNFTCountByClassId(classId, owner) {
@@ -88,8 +98,8 @@ export async function broadcastTx(signData, signer) {
   const client = await createNFTSigningClient(signer);
   const senderClient = client.getSigningStargateClient();
   const txBytes = TxRaw.encode(signData).finish();
-  const { transactionHash } = await senderClient.broadcastTx(txBytes);
-  return transactionHash;
+  const { transactionHash, code } = await senderClient.broadcastTx(txBytes);
+  return { txHash: transactionHash, code };
 }
 
 export async function signTransferNFT({
@@ -97,6 +107,7 @@ export async function signTransferNFT({
   toAddress,
   classId,
   nftId,
+  memo = '',
   signer,
 }) {
   const client = await createNFTSigningClient(signer);
@@ -105,7 +116,7 @@ export async function signTransferNFT({
     toAddress,
     classId,
     [nftId],
-    { broadcast: false }
+    { broadcast: false, memo }
   );
   return signData;
 }
@@ -140,10 +151,40 @@ export function isValidHttpUrl(string) {
   return false;
 }
 
-export function isWritingNFT(classMetadata) {
+export const nftClassCollectionType = {
+  WritingNFT: 'writing-nft',
+  BookNFT: 'book-nft',
+};
+
+export function getNFTClassCollectionType(classMetadata) {
+  switch (classMetadata?.nft_meta_collection_id) {
+    case 'likerland_writing_nft':
+      return nftClassCollectionType.WritingNFT;
+
+    case 'nft_book':
+      return nftClassCollectionType.BookNFT;
+
+    default:
+      return '';
+  }
+}
+
+export function checkIsWritingNFT(classMetadata) {
   return (
-    classMetadata?.metadata?.nft_meta_collection_id === 'likerland_writing_nft'
+    getNFTClassCollectionType(classMetadata) ===
+    nftClassCollectionType.WritingNFT
   );
+}
+
+export function formatNFTInfo(nftInfo) {
+  const {
+    class_id: classId,
+    nft_id: nftId,
+    timestamp: timestampStr,
+    uri,
+  } = nftInfo;
+  const timestamp = Date.parse(timestampStr);
+  return { classId, nftId, timestamp, uri };
 }
 
 function formatNFTEvent(event) {
@@ -154,6 +195,7 @@ function formatNFTEvent(event) {
     receiver: toWallet,
     tx_hash: txHash,
     timestamp,
+    memo,
   } = event;
   let eventName;
   switch (event.action) {
@@ -174,9 +216,72 @@ function formatNFTEvent(event) {
     fromWallet,
     toWallet,
     txHash,
+    memo,
     timestamp: Date.parse(timestamp),
   };
 }
+
+const queryAllDataFromChain = async (axios, api, field, input = {}) => {
+  let data;
+  let nextKey;
+  let count;
+  const result = [];
+  do {
+    // eslint-disable-next-line no-await-in-loop
+    ({ data } = await axios.get(
+      api({
+        ...input,
+        key: nextKey,
+        limit: NFT_INDEXER_LIMIT_MAX,
+      })
+    ));
+    nextKey = data.pagination.next_key;
+    ({ count } = data.pagination);
+    result.push(...data[field]);
+  } while (count === NFT_INDEXER_LIMIT_MAX);
+  return result;
+};
+
+const fetchAllNFTFromChain = async (axios, owner) => {
+  const nfts = await queryAllDataFromChain(axios, api.getNFTsPartial, 'nfts', {
+    expandClasses: true,
+    owner,
+  });
+  // sort by last colleted by default
+  return nfts;
+};
+export const getNFTsRespectDualPrefix = async (axios, owner) => {
+  const allowAddresses = deriveAllPrefixedAddresses(owner);
+  const arraysOfNFTs = await Promise.all(
+    allowAddresses.map(a => fetchAllNFTFromChain(axios, a))
+  );
+  return arraysOfNFTs.flat();
+};
+
+export function formatNFTClassInfo(classData) {
+  return {
+    classId: classData.id,
+    timestamp: new Date(classData.created_at).getTime(),
+  };
+}
+
+const fetchAllNFTClassFromChain = async (axios, owner) => {
+  const classes = await queryAllDataFromChain(
+    axios,
+    api.getNFTClassesPartial,
+    'classes',
+    { owner }
+  );
+  return classes;
+};
+
+export const getNFTClassesRespectDualPrefix = async (axios, owner) => {
+  const allowAddresses = deriveAllPrefixedAddresses(owner);
+  const arraysOfNFTClasses = await Promise.all(
+    allowAddresses.map(a => fetchAllNFTClassFromChain(axios, a))
+  );
+  return arraysOfNFTClasses.flat();
+};
 
 export function formatNFTEventsToHistory(events) {
   const history = events.map(e => formatNFTEvent(e)).reverse();
@@ -192,4 +297,11 @@ export function formatOwnerInfoFromChain(owners) {
     }
   });
   return ownerInfo;
+}
+
+export function parseNFTMetadataURL(url) {
+  const [schema, path] = url.split('://');
+  if (schema === 'ar') return `${ARWEAVE_ENDPOINT}/${path}`;
+  if (schema === 'ipfs') return `${IPFS_VIEW_GATEWAY_URL}/${path}`;
+  return url;
 }

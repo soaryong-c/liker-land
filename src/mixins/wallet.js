@@ -1,16 +1,10 @@
 import { mapActions, mapGetters } from 'vuex';
 
+import { getIdenticonAvatar } from '~/util/api';
 import { logTrackerEvent } from '~/util/EventLogger';
 import { getLikerIdSettingsURL } from '~/util/links';
 
 export default {
-  created() {
-    // Set Keplr Install CTA preset
-    const { name, $activeVariants } = this.$exp;
-    if (name === 'keplr-install-cta' && $activeVariants.length) {
-      this.setKeplrInstallCTAPreset($activeVariants[0].name);
-    }
-  },
   computed: {
     ...mapGetters([
       'getAddress',
@@ -19,20 +13,23 @@ export default {
       'getLocale',
       'walletMethodType',
       'walletLIKEBalance',
+      'walletLIKEBalanceFetchPromise',
     ]),
+    hasConnectedWallet() {
+      return !!this.getAddress && !!this.walletMethodType;
+    },
     isWalletUserCivicLiker() {
       return this.getLikerInfo && this.getLikerInfo.isSubscribedCivicLiker;
     },
     walletUserAvatar() {
       return (
         (this.getLikerInfo && this.getLikerInfo.avatar) ||
-        `https://avatars.dicebear.com/api/identicon/${this.getAddress}.svg`
+        getIdenticonAvatar(this.getAddress)
       );
     },
   },
   watch: {
     getAddress: {
-      immediate: true,
       handler(newAddress) {
         if (newAddress) this.walletFetchLIKEBalance();
       },
@@ -45,11 +42,12 @@ export default {
       'initWallet',
       'initIfNecessary',
       'restoreSession',
-      'setKeplrInstallCTAPreset',
       'walletFetchLIKEBalance',
     ]),
     async connectWallet() {
-      const connection = await this.openConnectWalletModal();
+      const connection = await this.openConnectWalletModal({
+        language: this.$i18n.locale.split('-')[0],
+      });
       if (!connection) return false;
       const { method } = connection;
       logTrackerEvent(

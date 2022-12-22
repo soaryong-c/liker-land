@@ -19,12 +19,14 @@
       <NFTAboutPageWidgetSection
         class="py-[32px] laptop:py-[64px]"
         :class-id="nftClassIds[0]"
+        :widget-collect-button-label="$t('nft_widget_button_collect')"
         @collect="handleCollectFromWidgetSection"
       />
       <NFTAboutPagePortfolioSection class="py-[32px] laptop:py-[64px]" />
       <NFTAboutPagePortalSection
         class="py-[32px] laptop:py-[64px]"
         :class-id="nftClassIds[1]"
+        :widget-collect-button-label="$t('nft_widget_button_collect')"
         @collect="handleCollectFromPortalSection"
       />
       <NFTAboutPagePricingSection class="py-[32px] laptop:py-[64px]" />
@@ -134,7 +136,7 @@
               class="group"
               href="https://blog.like.co"
               target="_blank"
-              rel="noreferrer noopener"
+              rel="noopener"
             >
               <svg
                 class="block mx-auto transition-colors bg-white rounded-full group-hover:bg-gray-e6"

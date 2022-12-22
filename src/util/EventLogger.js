@@ -14,14 +14,18 @@ function digestMessage(message) {
   return window.crypto.subtle.digest('SHA-256', data);
 }
 
-export async function setLoggerUser(vue, { wallet }) {
+export async function setLoggerUser(vue, { wallet, method }) {
   if (window.doNotTrack || navigator.doNotTrack) return;
   try {
     if (vue.$gtag) {
       let hashedId = await digestMessage(wallet);
       hashedId = hexString(hashedId);
       vue.$gtag.set({ userId: hashedId });
-      vue.$gtag.config({ user_id: hashedId });
+      // HACK: use .set to mitigate connected site user_id issue
+      // https://support.google.com/analytics/answer/9973999?hl=en
+      // vue.$gtag.config({ user_id: hashedId });
+      vue.$gtag.set({ user_id: hashedId });
+      vue.$gtag.event('login', { method });
     }
   } catch (err) {
     console.error(err); // eslint-disable-line no-console
@@ -40,27 +44,8 @@ export function updateSentryUser(vue, { user, displayName }) {
   }
 }
 
-export function updateCrispUser(vue, { user, crispToken, displayName, email }) {
-  if (vue.crisp) {
-    const { $crisp } = window;
-    if (displayName) $crisp.push(['set', 'user:nickname', [displayName]]);
-    if (email) {
-      const emailPayload = [email];
-      if (crispToken) emailPayload.push(crispToken);
-      $crisp.push(['set', 'user:email', emailPayload]);
-    }
-  }
-}
-
 export function logTrackerEvent(vue, category, action, label, value) {
   try {
-    if (vue.$crisp) {
-      vue.$crisp.push([
-        'set',
-        'session:event',
-        [[[`liker-land_${action}`, { label }]]],
-      ]);
-    }
     // do not track
     if (window.doNotTrack || navigator.doNotTrack) return;
     if (vue.$gtag) {
@@ -79,7 +64,7 @@ export function logTrackerEvent(vue, category, action, label, value) {
 export function logPurchaseFlowEvent(
   vue,
   event,
-  { txHash, name, price, currency = 'LIKE', classId }
+  { txHash, name, price, currency, classId }
 ) {
   try {
     if (
@@ -98,10 +83,12 @@ export function logPurchaseFlowEvent(
       vue.$gtag.event(event, {
         transaction_id: txHash,
         value: price,
+        currency,
         items: [
           {
             item_id: classId,
             item_name: name,
+            item_brand: 'Writing NFT',
             currency,
             price,
             quantity: 1,

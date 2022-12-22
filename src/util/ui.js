@@ -12,8 +12,8 @@ export function ellipsis(value) {
     const len = value.length;
     const dots = '...';
     if (!value) return '';
-    if (value.length > 15) {
-      return value.substring(0, 8) + dots + value.substring(len - 3, len);
+    if (value.length > 20) {
+      return value.substring(0, 8) + dots + value.substring(len - 6, len);
     }
     return value;
   }
@@ -55,11 +55,18 @@ export function formatNumber(num, options = {}) {
 }
 
 export function formatNumberWithUnit(num, unit, options = {}) {
+  if (!num) {
+    return '-';
+  }
   return `${formatNumber(num, options)} ${unit}`;
 }
 
 export function formatNumberWithLIKE(num, options = {}) {
   return formatNumberWithUnit(num, 'LIKE', options);
+}
+
+export function getLikeCoResizedImageUrl(url, size) {
+  return url.replace(/\?size=\d+/, `?size=${size}`);
 }
 
 export default ellipsis;

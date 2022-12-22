@@ -11,6 +11,7 @@
       :is-outlined="isAvatarOutlined"
       :is-outline-extruded="isAvatarOutlineExtruded"
       :is-disabled="isAvatarDisabled"
+      :is-lazy-loaded="isLazyLoaded"
       @click="onClickAvatar"
     />
     <div>
@@ -42,6 +43,10 @@ export default {
     avatarUrl: {
       type: String,
       default: '',
+    },
+    isLazyLoaded: {
+      type: Boolean,
+      default: false,
     },
     isAvatarDisabled: {
       type: Boolean,

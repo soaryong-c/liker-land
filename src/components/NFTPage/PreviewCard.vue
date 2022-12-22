@@ -11,25 +11,10 @@
     ]"
     :has-padding="false"
   >
-    <div
-      v-if="imageUrl"
-      class="h-[180px]"
-      :style="`background-color: ${imageBgColor}`"
-    >
-      <img
-        class="object-cover w-full max-h-[180px]"
-        :src="imageUrl"
-      >
-    </div>
-    <div
-      v-else
-      class="h-[180px]"
-    >
-      <img
-        class="object-cover h-full max-h-[180px]"
-        src="~/assets/images/nft/primitive-nft.png"
-      >
-    </div>
+    <NFTCover
+      :src="imageUrl"
+      :bg-color="imageBgColor"
+    />
     <div
       :class="[
         'flex',
@@ -37,7 +22,7 @@
         'justify-center',
         'items-center',
         'whitespace-pre-line',
-        'break-all',
+        'break-normal',
         'px-[24px]',
         'pt-[48px]',
         'py-[24px]',
@@ -73,23 +58,71 @@
         preset="p5"
         :text="nftDescription | ellipsisDescription"
       />
+
+      <Separator v-if="isPrimitive || url" class="my-[16px]" />
+
       <ButtonV2
-        v-if="nftPrice"
-        class="mt-[16px]"
-        :text="nftPrice | formatNumberWithLIKE"
-        preset="secondary"
-        @click="handleClickCollect"
+        v-if="url"
+        preset="outline"
+        :text="$t('campaign_nft_item_view_details_label')"
+        :href="url"
+        target="_blank"
+        @click="handleClickViewContent"
       >
         <template #prepend>
-          <IconPrice />
+          <IconArticle />
+        </template>
+        <template #append>
+          <IconLinkExternal />
         </template>
       </ButtonV2>
+      <ButtonV2
+        v-else
+        preset="outline"
+        :text="$t('nft_details_page_section_metadata_iscn')"
+        :href="iscnUrl"
+        target="_blank"
+        @click="handleClickViewContent"
+      >
+        <template #prepend>
+          <IconISCN class="w-[20px] text-dark-gray" />
+        </template>
+        <template #append>
+          <IconLinkExternal />
+        </template>
+      </ButtonV2>
+
+      <div
+        v-if="isWritingNFT"
+        class="grid grid-flow-col gap-[16px] items-center justify-center mt-[18px] text-[12px]"
+      >
+        <div class="flex items-center text-medium-gray">
+          <IconMint />
+          <div class="ml-[4px]">{{ collectedCount }}</div>
+        </div>
+        <div class="flex items-center text-medium-gray">
+          <IconOwner />
+          <div class="ml-[4px]">{{ collectorCount }}</div>
+        </div>
+        <div v-if="nftPrice > 0" class="flex items-center text-like-green">
+          <IconPrice />
+          <div class="ml-[4px]">{{ nftPrice | formatNumberWithLIKE }}</div>
+        </div>
+      </div>
+      <Label
+        v-else-if="classCollectionName"
+        class="mt-[16px] mx-auto rounded-full bg-shade-gray text-dark-gray font-[600] w-min px-[12px] py-[2px]"
+        preset="p6"
+      >{{ classCollectionName }}</Label>
+
     </div>
   </CardV2>
 </template>
 
 <script>
 import { ellipsis, ellipsisDescription, formatNumberWithLIKE } from '~/util/ui';
+
+import nftClassCollectionMixin from '~/mixins/nft-class-collection';
 
 export default {
   name: 'ItemCard',
@@ -98,7 +131,13 @@ export default {
     ellipsisDescription,
     formatNumberWithLIKE,
   },
+  mixins: [nftClassCollectionMixin],
   props: {
+    url: {
+      type: String,
+      default: undefined,
+    },
+
     // BackgroundImg
     imageBgColor: {
       type: String,
@@ -128,6 +167,10 @@ export default {
       type: String,
       default: undefined,
     },
+    iscnUrl: {
+      type: String,
+      default: undefined,
+    },
     displayName: {
       type: String,
       default: undefined,
@@ -146,6 +189,24 @@ export default {
       type: Number,
       default: undefined,
     },
+    classCollectionType: {
+      type: String,
+      default: '',
+    },
+    classCollectionName: {
+      type: String,
+      default: '',
+    },
+
+    // Mint Info
+    collectedCount: {
+      type: Number,
+      default: 0,
+    },
+    collectorCount: {
+      type: Number,
+      default: 0,
+    },
   },
   computed: {
     formattedNFTPrice() {
@@ -155,6 +216,9 @@ export default {
   methods: {
     handleClickCollect() {
       this.$emit('collect');
+    },
+    handleClickViewContent() {
+      this.$emit('view-content');
     },
   },
 };

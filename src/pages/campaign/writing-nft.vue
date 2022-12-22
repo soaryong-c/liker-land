@@ -50,6 +50,12 @@
           />
         </svg>
       </div>
+      <a
+        class="flex items-center justify-center mt-[24px] text-medium-gray hover:text-like-cyan-dark text-[12px] leading-[5/3] underline transition-colors cursor-pointer"
+        href="https://likecoin.github.io/likecoin-nft-dashboard/"
+        target="_blank"
+        rel="noopener"
+      >{{ $t('campaign_nft_view_nft_dashboard') }}</a>
     </section>
     <section
       class="
@@ -75,9 +81,16 @@
     <section class="mt-[88px] px-[24px]">
       <h1 class="font-proxima font-[600] text-[32px] leading-[2] text-center text-like-green">{{ $t('campaign_nft_upcoming') }}</h1>
       <img
+        loading="lazy"
         class="mt-[16px] max-w-[696px] w-full max-h-[316px] border-shade-gray border-[2px] rounded-[24px] mx-auto object-cover"
         src="~/assets/images/nft/upcoming.jpg"
       >
+      <a
+        class="flex items-center justify-center mt-[8px] text-medium-gray hover:text-like-cyan-dark text-[12px] leading-[5/3] underline transition-colors cursor-pointer"
+        href="https://likecoin.github.io/likecoin-nft-dashboard/"
+        target="_blank"
+        rel="noopener"
+      >{{ $t('campaign_nft_view_nft_dashboard') }}</a>
     </section>
   </main>
 </template>

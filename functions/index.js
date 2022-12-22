@@ -6,10 +6,18 @@ if (!currentFunction || currentFunction === 'ssrapp') {
   exports.ssrapp = require('./ssrapp');
 }
 
-if (!currentFunction || currentFunction === 'apiHttp') {
-  exports.apiHttp = require('./apiHttp');
+if (!currentFunction || currentFunction === 'api') {
+  exports.api = require('./api');
 }
 
-if (!currentFunction || currentFunction === 'backupCron') {
-  exports.backupCron = require('./backupCron');
+if (!currentFunction || currentFunction === 'backup') {
+  exports.backup = require('./backup');
+}
+
+if (!currentFunction || currentFunction === 'firestore') {
+  exports.firestore = require('./firestore');
+}
+
+if (!currentFunction || currentFunction === 'pubsub') {
+  exports.pubsub = require('./pubsub');
 }

@@ -1,6 +1,7 @@
 /* eslint-disable import/no-extraneous-dependencies */
 /* eslint-disable prettier/prettier */
 const path = require('path');
+const { getSitemapRoutes } = require('./config/sitemap');
 const { theme } = require('./tailwind.config');
 
 const siteName = 'Liker.Land';
@@ -12,6 +13,7 @@ const {
   STRIPE_PUBLIC_KEY,
   GA_TRACKING_ID,
   ADWORDS_TRACKING_ID,
+  EXTERNAL_URL,
 } = process.env;
 
 const nuxtConfig = {
@@ -23,6 +25,7 @@ const nuxtConfig = {
     GA_TRACKING_ID,
     ADWORDS_TRACKING_ID,
     SITE_NAME: siteName,
+    EXTERNAL_URL,
   },
   mode: 'universal',
   server: {
@@ -232,11 +235,12 @@ const nuxtConfig = {
     // Doc: https://axios.nuxtjs.org/usage
     '@nuxtjs/axios',
     '@nuxtjs/sentry',
+    '@nuxtjs/sitemap',
     ['@nuxtjs/pwa', { icon: false }],
     'portal-vue/nuxt',
-    ['@likecoin/nuxt-google-optimize', {
-      plugins: [{ src: '~/plugins/experiment.client.js', mode: 'client' }],
-    }],
+    // ['@likecoin/nuxt-google-optimize', {
+    //   plugins: [{ src: '~/plugins/experiment.client.js', mode: 'client' }],
+    // }],
   ],
 
   // Auto import components: https://go.nuxtjs.dev/config-components
@@ -314,20 +318,24 @@ const nuxtConfig = {
       ReportingObserver: false, // reporting is very noisy on CSP violation.
     },
   },
-  googleOptimize: {
-    useFetch: false,
-    maxAge: 86400, // 1 day
+  sitemap: {
+    hostname: EXTERNAL_URL,
+    routes: getSitemapRoutes,
   },
+  // googleOptimize: {
+  //   useFetch: false,
+  //   maxAge: 86400, // 1 day
+  // },
   router: {
-    middleware: 'sliding-menu',
     extendRoutes(routes, resolve) {
-      // Change /settings/following/unfollowed to /settings/unfollowed
-      let route = routes.find(r => r.path === '/settings');
-      route = route.children.find(r => r.path === 'following');
+      const route = routes.find(r => r.name === 'id');
+      const [subscribeRoute] = route.children;
+      const replaceToUnsubscribe = s => s.replace('subscribe', 'unsubscribe');
       route.children.push({
-        path: '/settings/unfollowed',
-        component: resolve(__dirname, 'pages/settings/following/index.vue'),
-        name: 'settings-unfollowed',
+        name: replaceToUnsubscribe(subscribeRoute.name),
+        path: replaceToUnsubscribe(subscribeRoute.path),
+        component: subscribeRoute.component,
+        chunkName: replaceToUnsubscribe(subscribeRoute.chunkName),
       });
 
       const civicPageRouteIndex = routes.findIndex(r => r.name === 'civic-from');
@@ -340,12 +348,6 @@ const nuxtConfig = {
           component: resolve(__dirname, 'pages/_id/civic/index.vue'),
           name: 'civic-classic',
         },
-        // /civic uses /civic/from template
-        {
-          path: '/civic',
-          component: resolve(__dirname, 'pages/civic/_from.vue'),
-          name: 'civic',
-        }
       );
     }
   },

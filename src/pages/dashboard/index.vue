@@ -1,5 +1,5 @@
 <template>
-  <Page>
+  <Page class="px-[8px]">
     <div
       v-if="!getAddress"
       class="flex flex-col items-center justify-center h-[80vh] mt-[-80px]"
@@ -10,46 +10,47 @@
         @click="connectWallet"
       />
     </div>
-    <div v-else class="flex flex-col items-center mt-[32px]">
+    <template v-else>
       <!-- UserStat -->
-      <div class="relative flex items-center mb-[28px] laptop:mb-[48px] w-full">
+      <div class="flex items-center mb-[24px] laptop:mb-[48px] w-full max-w-[736px]">
         <UserStatsMyDashboard
           class="flex flex-col items-center w-full laptop:flex-row"
-          :collected-class-ids="collectedClassIds"
-          :created-class-ids="createdClassIds"
-          :is-loading="isLoading"
+          :stat-wallet="getAddress"
           @go-created="handleGoCreated"
           @go-collected="handleGoCollected"
         />
-        <ShareButton class="absolute right-0 laptop:right-[-40px]" @copy="handleShare" />
       </div>
+
       <!-- Main -->
-      <div
-        :class="[
-          'flex',
-          'flex-col',
-          'relative',
-          'items-center',
-          'w-full',
-          'max-w-[636px]',
-          'desktop:w-[636px]',
-        ]"
+      <NFTPortfolioMainView
+        key="dashboard"
+        ref="portfolioMainView"
+        :portfolio-wallet="getAddress"
+        :portfolio-tab="currentTab"
+        :portfolio-items="currentNFTClassList"
+        :portfolio-items-show-count="currentNFTClassListShowCount"
+        :portfolio-items-sorting="currentNFTClassListSorting"
+        :portfolio-items-sorting-order="currentNFTClassListSortingOrder"
+        :portfolio-items-sorting-option-list="currentNFTClassSortingOptionList"
+        :is-loading-portfolio-items="isLoading"
+        :is-show-other-tab="isShowOtherTab"
+        @portfolio-change-tab="handleTabChange"
+        @portfolio-change-sorting="handleNFTClassListSortingChange"
+        @infinite-scroll="handleInfiniteScroll"
       >
-        <div
-          :class="['flex', 'flex-col', 'items-center', 'mb-[48px]', 'w-full']"
-        >
+        <template #tab-bar-prepend>
           <ButtonV2
             preset="tertiary"
-            text="Portfolio View"
+            size="small"
+            :text="$t('dashboard_portfolio_button')"
             :class="[
               'block',
-              'mb-[12px]',
 
               'laptop:absolute',
-              'laptop:left-[-100px]',
-              'laptop:m-0',
+              'laptop:left-0',
+              'laptop:ml-[32px]',
 
-              'rounded-[16px]',
+              'rounded-full',
             ]"
             @click="goMyPortfolio"
           >
@@ -57,91 +58,10 @@
               <IconView />
             </template>
           </ButtonV2>
-          <div
-            :class="[
-              'flex',
-              'justify-center',
-              'items-center',
-              'p-[4px]',
-              'mx-auto',
-              'bg-shade-gray',
-              'rounded-[14px]',
-            ]"
-          >
-            <MenuButton
-              :text="$t('nft_portfolio_page_label_collected')"
-              :is-selected="currentTab === 'collected'"
-              @click="handleGoCollected"
-            />
-            <MenuButtonDivider />
-            <MenuButton
-              :text="$t('nft_portfolio_page_label_created')"
-              :is-selected="currentTab === 'created'"
-              @click="handleGoCreated"
-            />
-          </div>
-        </div>
+        </template>
+      </NFTPortfolioMainView>
 
-        <CardV2 v-if="isLoading">{{
-          $t('nft_portfolio_page_label_loading')
-        }}</CardV2>
-        <div v-else>
-          <ul
-            v-if="currentTab === 'collected'"
-            :class="[
-              'w-full',
-              'mx-auto',
-
-              'columns-1',
-              'laptop:columns-2',
-
-              'gap-[16px]',
-            ]"
-          >
-            <li>
-              <NFTPortfolioEmpty v-if="!sortedCollectedClassIds.length" preset="collected" />
-            </li>
-            <li v-for="id in sortedCollectedClassIds" :key="id">
-              <NFTPortfolioItem :class-id="id" class="mb-[16px]" />
-            </li>
-          </ul>
-
-          <ul
-            v-if="currentTab === 'created'"
-            :class="[
-              'w-full',
-              'mx-auto',
-
-              'columns-1',
-              'laptop:columns-2',
-
-              'gap-[16px]',
-            ]"
-          >
-            <li>
-              <NFTPortfolioEmpty v-if="!sortedCreatedClassIds.length" preset="created" />
-            </li>
-            <li
-              v-for="id in sortedCreatedClassIds"
-              :key="id"
-            >
-              <NFTPortfolioItem
-                :class-id="id"
-                class="mb-[16px]"
-              />
-            </li>
-          </ul>
-          <div class="flex flex-col items-center my-[48px] w-full">
-            <div class="w-[32px] h-[2px] bg-shade-gray mb-[32px]" />
-            <ButtonV2
-              preset="outline"
-              :text="$t('portfolio_finding_more_button')"
-              to="/campaign/writing-nft"
-            />
-          </div>
-        </div>
-      </div>
-    </div>
+    </template>
   </Page>
 </template>
 
@@ -150,49 +70,102 @@ import { mapActions } from 'vuex';
 
 import { logTrackerEvent } from '~/util/EventLogger';
 
+import { createPorfolioMixin, tabOptions } from '~/mixins/portfolio';
 import walletMixin from '~/mixins/wallet';
-import portfolioMixin from '~/mixins/portfolio';
 
 export default {
   name: 'MyDashboardPage',
   layout: 'default',
-  mixins: [walletMixin, portfolioMixin],
-  watch: {
-    getAddress: {
-      immediate: true,
-      async handler(newAddress) {
-        if (newAddress) {
-          this.fetchUserInfo();
-          await this.loadNFTListByAddress(this.getAddress);
-        }
-      },
+  mixins: [
+    walletMixin,
+    createPorfolioMixin({ shouldApplyDisplayState: false }),
+  ],
+  head() {
+    const title = this.$t('dashboard_title');
+    const description = this.$t('dashboard_description');
+    return {
+      title,
+      meta: [
+        {
+          hid: 'og:title',
+          property: 'og:title',
+          content: title,
+        },
+        {
+          hid: 'description',
+          name: 'description',
+          content: description,
+        },
+        {
+          hid: 'og:description',
+          property: 'og:description',
+          content: description,
+        },
+        {
+          hid: 'og:image',
+          property: 'og:image',
+          content: 'https://liker.land/images/og/writing-nft.jpg',
+        },
+      ],
+    };
+  },
+  computed: {
+    wallet() {
+      return this.getAddress;
     },
+  },
+  watch: {
+    async getAddress(newAddress) {
+      if (newAddress) {
+        this.fetchUserInfo();
+        await this.loadNFTListByAddress(this.getAddress);
+      }
+    },
+  },
+  mounted() {
+    this.syncRouteForTab();
+    if (this.getAddress) this.loadNFTListByAddress(this.getAddress);
   },
   methods: {
     ...mapActions(['fetchUserInfoByAddress']),
     async fetchUserInfo() {
       try {
-        const userInfo = await this.fetchUserInfoByAddress(this.getAddress);
-        this.userInfo = userInfo.data;
-        this.wallet = this.getAddress;
+        await this.fetchUserInfoByAddress(this.getAddress);
       } catch (error) {
         // eslint-disable-next-line no-console
         console.error(error);
-      } finally {
-        this.wallet = this.getAddress;
       }
     },
     handleGoCollected() {
-      logTrackerEvent(this, 'MyDashboard', 'GoCollectedTab', this.wallet, 1);
-      this.goCollected();
+      this.handleTabChange(tabOptions.collected);
     },
     handleGoCreated() {
-      logTrackerEvent(this, 'MyDashboard', 'GoCreatedTab', this.wallet, 1);
-      this.goCreated();
+      this.handleTabChange(tabOptions.created);
     },
-    handleShare() {
-      this.copySharePageURL(this.wallet, this.getAddress);
-      logTrackerEvent(this, 'MyDashboard', 'CopyShareURL', this.wallet, 1);
+    handleTabChange(tab) {
+      switch (tab) {
+        case tabOptions.collected:
+          logTrackerEvent(
+            this,
+            'MyDashboard',
+            'GoCollectedTab',
+            this.wallet,
+            1
+          );
+          break;
+
+        case tabOptions.created:
+          logTrackerEvent(this, 'MyDashboard', 'GoCreatedTab', this.wallet, 1);
+
+          break;
+        case tabOptions.other:
+          logTrackerEvent(this, 'MyDashboard', 'GoOtherTab', this.wallet, 1);
+          break;
+
+        default:
+          break;
+      }
+      this.changeTab(tab);
     },
     goMyPortfolio() {
       logTrackerEvent(this, 'MyDashboard', 'GoToMyPortfolio', this.wallet, 1);
